@@ -3,7 +3,7 @@
 // Run ONCE from your own computer before first use on Vercel:
 //   STORAGE=sheets SHEET_ID=... GOOGLE_SERVICE_ACCOUNT_JSON='...' SESSION_SECRET=x node scripts/create-admin.js
 const crypto = require('node:crypto');
-const { createApp } = require('../src/server');
+const { createApp } = require('../src/club');
 (async () => {
   const app = createApp();
   const n = await app.withDb((d) => d.prepare('SELECT COUNT(*) n FROM users').get().n);

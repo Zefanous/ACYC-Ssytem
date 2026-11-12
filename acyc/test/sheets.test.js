@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { startFakeGoogle } = require('./fake-google');
 const { createSheetsStore } = require('../src/store');
-const { createApp } = require('../src/server');
+const { createApp } = require('../src/club');
 
 let g, app, base, store;
 const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -168,7 +168,7 @@ describe('Google Sheets as the database', () => {
 
 describe('import script helper', () => {
   test('replaceAll copies a local database into the sheet and the app can read it', async () => {
-    const { createApp: mk } = require('../src/server'); const { seed } = require('../scripts/seed');
+    const { createApp: mk } = require('../src/club'); const { seed } = require('../scripts/seed');
     const local = mk({ dbPath: ':memory:' }); seed(local);
     const s = mkStore(0);
     await s.replaceAll(s.dumpFrom(local.db));

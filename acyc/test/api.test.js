@@ -1,7 +1,7 @@
 'use strict';
 const { test, before, after, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { createApp } = require('../src/server');
+const { createApp } = require('../src/club');
 const { seed } = require('../scripts/seed');
 
 let app, base, NOW = '2026-11-10T14:00';

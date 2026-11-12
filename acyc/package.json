@@ -4,7 +4,7 @@
   "description": "Activity management system for The Aids Challenge Youth Club (Google Sheets or SQLite storage, zero dependencies, Node 22+)",
   "private": true,
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node src/club.js",
     "seed": "node scripts/seed.js",
     "test": "node --no-warnings --test --test-timeout=20000 test/api.test.js test/sheets.test.js",
     "backup": "node scripts/backup.js",

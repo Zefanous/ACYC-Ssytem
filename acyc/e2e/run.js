@@ -3,7 +3,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path');
-const { createApp } = require('../src/server');
+const { createApp } = require('../src/club');
 const { seed } = require('../scripts/seed');
 
 const SHOTS = process.env.SHOTS || path.join(os.tmpdir(), 'acyc-shots'); fs.mkdirSync(SHOTS, { recursive: true });

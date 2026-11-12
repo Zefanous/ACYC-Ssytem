@@ -22,7 +22,7 @@ Open the system address in any phone or computer browser. Enter your username an
 | Remove a member's personal data | | ✔ |
 | Manage users, view audit history, download backups | | ✔ |
 
-These two roles are the only ones built. If the club needs different roles, the table is in one place (`PERMS` in `src/server.js`).
+These two roles are the only ones built. If the club needs different roles, the table is in one place (`PERMS` in `src/club.js`).
 
 ## 3. Everyday tasks
 **Create an activity** – Dashboard → *+ New activity*. Fill in title, type, organizer, date, time and location (agenda is optional) → *Create activity*. You go straight to the attendance page.

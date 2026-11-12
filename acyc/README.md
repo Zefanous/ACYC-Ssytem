@@ -57,7 +57,7 @@ scrypt-hashed passwords · random server-side sessions in HttpOnly + SameSite=St
 
 ## Assumptions (change if wrong)
 1. Platform: responsive web app, self-hosted, one club. Needs internet/LAN; **no offline mode** (and the UI says so).
-2. Roles: only **administrator** and **club leader** (from the brief); permissions in `PERMS`, `src/server.js`.
+2. Roles: only **administrator** and **club leader** (from the brief); permissions in `PERMS`, `src/club.js`.
 3. Activity types: Meeting, Event, Outreach, Training, Other (`ACTIVITY_TYPES`).
 4. Organizer and task owner are club *members* (not login users).
 5. "Held" = not cancelled and start time has passed. "Overdue" = open task past its due date. Attendance % = (present + late) ÷ (present + late + absent); excused is not counted against anyone.

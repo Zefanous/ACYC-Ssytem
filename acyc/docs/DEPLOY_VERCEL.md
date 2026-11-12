@@ -9,15 +9,8 @@ The app is ready for Vercel: static pages come from `public/`, the API runs as o
 4. Create a new, empty Google Sheet. Click **Share**, paste the service account's `client_email` (from the JSON), give **Editor**. Do not make the sheet public or share it with anyone else (it holds password hashes and member details).
 5. Copy the Sheet ID: the long text between `/d/` and `/edit` in its address.
 
-## 2. Create the tabs and first administrator (once, on your computer)
-```bash
-export STORAGE=sheets
-export SHEET_ID="<sheet id>"
-export GOOGLE_SERVICE_ACCOUNT_JSON="$(cat path/to/key.json)"
-export SESSION_SECRET="anything-long"      # only needed so the script starts
-npm run create-admin
-```
-It prints a temporary password for user `admin`. (Optional demo data: `npm run seed`, then delete the Example records before real use.)
+## 2. Nothing to do here
+The first time the app opens, it creates the sheet tabs and the first administrator by itself. You only choose that administrator's temporary password in step 4 (`BOOTSTRAP_ADMIN_PASSWORD`).
 
 ## 3. Put the code on GitHub
 Push the `acyc` folder to a **private** repository (never commit the key file).
@@ -32,10 +25,11 @@ Push the `acyc` folder to a **private** repository (never commit the key file).
 | `SHEET_ID` | your sheet id |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | the whole contents of the key file |
 | `SESSION_SECRET` | a new random value: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `BOOTSTRAP_ADMIN_PASSWORD` | a temporary password you invent, at least 10 characters (used only if there are no users yet) |
 | `CLUB_TZ` | `Africa/Kampala` |
 | `COOKIE_SECURE` | `1` |
 
-3. **Deploy.** Then open the address Vercel gives you and sign in as `admin` with the temporary password; you will be asked to choose your own.
+3. **Deploy.** Then open the address Vercel gives you and sign in with username `admin` and the `BOOTSTRAP_ADMIN_PASSWORD` you chose; you will be asked to choose your own.
 
 ## 5. After deploying: check
 - `https://<your-app>/api/me` shows `{"error":"Please sign in."}` (the API is alive).

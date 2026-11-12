@@ -1,7 +1,7 @@
 'use strict';
 // Creates DEMONSTRATION data only. All people below are invented; every record is flagged is_demo=1
 // and shown with an "Example" badge in the app. Do not run on a database holding real club records.
-const { createApp, clubNow } = require('../src/server');
+const { createApp, clubNow } = require('../src/club');
 
 const NAMES = ['Amina Example', 'Brian Sample', 'Chloe Demo', 'Daniel Placeholder', 'Esther Test', 'Felix Mockson',
   'Grace Illustrative', 'Henry Sampleton', 'Irene Pretend', 'Joseph Exemplar', 'Kevin Fictional', 'Lydia Notreal'];
