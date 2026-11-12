@@ -9,6 +9,7 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const TZ = process.env.CLUB_TZ || 'Africa/Kampala';
 const SESSION_HOURS = 8;
 const ACTIVITY_TYPES = ['Meeting', 'Event', 'Outreach', 'Training', 'Other']; // editable default list (assumption)
+const ROLES = ['admin', 'leader', 'secretary'];
 const ATT_STATUSES = ['present', 'absent', 'late', 'excused'];
 const MIN_PASSWORD = 10;
 
@@ -101,12 +102,16 @@ function createApp({ dbPath, store: givenStore, now = () => clubNow(), secureCoo
   };
 
   /* ----- permissions ----- */
-  // Single place to adjust who can do what. Roles are only "admin" and "leader".
+  // Single place to adjust who can do what. Roles: administrator, club leader, secretary.
+  //  - Club leader: records attendance, and can view everything and run reports.
+  //  - Secretary: does everything else (members, activities, notes, tasks, reports) but does not record attendance.
+  //  - Administrator: everything, plus users, audit history, backups and permanent removals.
   const PERMS = {
     admin: new Set(['members.read', 'members.write', 'members.deactivate', 'members.remove', 'activities.write', 'activities.delete',
       'attendance.write', 'notes.write', 'tasks.write', 'reports.read', 'users.manage', 'audit.read', 'backup']),
-    leader: new Set(['members.read', 'members.write', 'members.deactivate', 'activities.write',
-      'attendance.write', 'notes.write', 'tasks.write', 'reports.read']),
+    leader: new Set(['members.read', 'attendance.write', 'reports.read']),
+    secretary: new Set(['members.read', 'members.write', 'members.deactivate', 'activities.write',
+      'notes.write', 'tasks.write', 'reports.read']),
   };
   const can = (user, perm) => PERMS[user.role].has(perm);
 
@@ -273,7 +278,7 @@ function createApp({ dbPath, store: givenStore, now = () => clubNow(), secureCoo
   route('POST', '/api/users', 'users.manage', (c) => {
     const username = req_(c.body, 'username', 'Username', 40), display = req_(c.body, 'display_name', 'Display name', 80);
     if (!/^[A-Za-z0-9._-]{3,40}$/.test(username)) throw bad('Username: 3-40 letters, numbers, dot, dash or underscore.', { username: 'Invalid username.' });
-    if (!['admin', 'leader'].includes(c.body.role)) throw bad('Choose a role.', { role: 'Choose a role.' });
+    if (!ROLES.includes(c.body.role)) throw bad('Choose a role.', { role: 'Choose a role.' });
     const pw = typeof c.body.password === 'string' ? c.body.password : '';
     if (pw.length < MIN_PASSWORD) throw bad(`Temporary password must be at least ${MIN_PASSWORD} characters.`, { password: `At least ${MIN_PASSWORD} characters.` });
     if (q('SELECT 1 FROM users WHERE username=?').get(username)) throw new HttpError(409, 'That username is already taken.', { username: 'Already taken.' });
@@ -285,7 +290,7 @@ function createApp({ dbPath, store: givenStore, now = () => clubNow(), secureCoo
     const u = q('SELECT * FROM users WHERE id=?').get(Number(c.params.id));
     if (!u) throw new HttpError(404, 'User not found.');
     const ch = {};
-    if (c.body.role !== undefined) { if (!['admin', 'leader'].includes(c.body.role)) throw bad('Invalid role.'); ch.role = c.body.role; }
+    if (c.body.role !== undefined) { if (!ROLES.includes(c.body.role)) throw bad('Invalid role.'); ch.role = c.body.role; }
     if (c.body.active !== undefined) ch.active = c.body.active ? 1 : 0;
     if (c.body.display_name !== undefined) ch.display_name = req_(c.body, 'display_name', 'Display name', 80);
     if (u.id === c.user.id && ((ch.role && ch.role !== 'admin') || ch.active === 0)) throw bad('You cannot remove your own administrator access or deactivate yourself.');
@@ -532,7 +537,7 @@ function createApp({ dbPath, store: givenStore, now = () => clubNow(), secureCoo
   });
 
   /* ---------- HTTP layer ---------- */
-  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
   const SEC_HEADERS = {
     'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
     'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store',

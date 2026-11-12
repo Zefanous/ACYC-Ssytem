@@ -11,27 +11,34 @@ Open the system address in any phone or computer browser. Enter your username an
 - You are signed out automatically after 8 hours. Always press **Sign out** on a shared device.
 
 ## 2. Who can do what
-| | Club leader | Administrator |
-|---|:-:|:-:|
-| View members, activities, attendance, notes, tasks | ✔ | ✔ |
-| Add / edit members, deactivate / reactivate | ✔ | ✔ |
-| Create / edit / cancel activities | ✔ | ✔ |
-| Record and correct attendance, write notes, manage tasks | ✔ | ✔ |
-| Reports (print, CSV) | ✔ | ✔ |
-| Delete an activity permanently | | ✔ |
-| Remove a member's personal data | | ✔ |
-| Manage users, view audit history, download backups | | ✔ |
+| | Club leader | Secretary | Administrator |
+|---|:-:|:-:|:-:|
+| View members, activities, attendance, notes, tasks, dashboard | ✔ | ✔ | ✔ |
+| **Record and correct attendance** | ✔ | | ✔ |
+| Add / edit members, deactivate / reactivate | | ✔ | ✔ |
+| Create / edit / cancel activities | | ✔ | ✔ |
+| Write meeting notes, manage follow-up tasks | | ✔ | ✔ |
+| Reports (print, CSV) | ✔ | ✔ | ✔ |
+| Delete an activity permanently, remove a member's personal data | | | ✔ |
+| Manage users, view audit history, download backups | | | ✔ |
 
-These two roles are the only ones built. If the club needs different roles, the table is in one place (`PERMS` in `src/club.js`).
+In short: **the club leader records attendance; the secretary does the rest of the day-to-day work.** The administrator (for example the person who set up the system) manages users and safeguards. The table lives in one place (`PERMS` in `src/club.js`) if the club wants to change it.
+
+## Install the app on your phone
+The system is an installable app (no app store needed). Open the club's web address once, then:
+- **Android (Chrome):** tap **Install app** at the top of the page, or the ⋮ menu → *Install app / Add to Home screen*.
+- **iPhone (Safari):** tap the Share button → *Add to Home Screen*.
+- **Computer (Chrome/Edge):** click the install icon at the right of the address bar.
+It then opens full-screen from its own icon. It still needs internet: **no club data is stored on the phone**.
 
 ## 3. Everyday tasks
-**Create an activity** – Dashboard → *+ New activity*. Fill in title, type, organizer, date, time and location (agenda is optional) → *Create activity*. You go straight to the attendance page.
+**Create an activity (secretary)** – Dashboard → *+ New activity*. Fill in title, type, organizer, date, time and location (agenda is optional) → *Create activity*. You go straight to the attendance page.
 
-**Record attendance** – open the activity → *Attendance*. Tap Present / Absent / Late / Excused for each person, or *Mark everyone present* first and change the exceptions. Press **Save attendance**. Later corrections use the same page; every correction is logged (who, when, old → new value).
+**Record attendance (club leader)** – open the activity → *Attendance*. Tap Present / Absent / Late / Excused for each person, or *Mark everyone present* first and change the exceptions. Press **Save attendance**. Later corrections use the same page; every correction is logged (who, when, old → new value).
 
-**Meeting notes and follow-up** – activity → *Notes and tasks*. Write notes, decisions and outcomes, then add tasks: what, who is responsible, due date. A task shows **Open**, **Completed** or **Overdue** (open and past its due date). Use *Mark done* when finished.
+**Meeting notes and follow-up (secretary)** – activity → *Notes and tasks*. Write notes, decisions and outcomes, then add tasks: what, who is responsible, due date. A task shows **Open**, **Completed** or **Overdue** (open and past its due date). Use *Mark done* when finished.
 
-**Members** – *Members* → *+ Add member*. Only name, optional phone/email, status and date joined are kept. *Deactivate* hides someone from new attendance lists but keeps their history.
+**Members (secretary)** – *Members* → *+ Add member*. Only name, optional phone/email, status and date joined are kept. *Deactivate* hides someone from new attendance lists but keeps their history.
 
 **Reports** – *Reports* → pick dates → *Create report*. Shows activities held, attendance totals, each member's participation and outstanding tasks. Use *Print* or *Export CSV* (opens in Excel/Sheets).
 

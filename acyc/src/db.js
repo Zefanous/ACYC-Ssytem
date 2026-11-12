@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
   display_name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin','leader')),
+  role TEXT NOT NULL CHECK (role IN ('admin','leader','secretary')),
   password_hash TEXT NOT NULL,
   active INTEGER NOT NULL DEFAULT 1,
   must_change INTEGER NOT NULL DEFAULT 0,

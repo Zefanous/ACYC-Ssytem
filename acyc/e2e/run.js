@@ -22,15 +22,15 @@ const SHOTS = process.env.SHOTS || path.join(os.tmpdir(), 'acyc-shots'); fs.mkdi
 
   await page.goto(base);
   // wrong password
-  await page.fill('[name=username]', 'demo-leader'); await page.fill('[name=password]', 'wrongwrong');
+  await page.fill('[name=username]', 'demo-secretary'); await page.fill('[name=password]', 'wrongwrong');
   await page.click('button[type=submit]');
   await page.waitForSelector('.form-error');
   assert.match(await page.textContent('.form-error'), /not correct/); ok('wrong password shows a plain-language error');
   await shot('01-login-mobile');
-  await page.fill('[name=password]', 'DemoLeader-2026!'); await page.click('button[type=submit]');
-  await page.waitForSelector('h1:has-text("Dashboard")'); ok('leader signs in');
+  await page.fill('[name=password]', 'DemoSecretary-2026!'); await page.click('button[type=submit]');
+  await page.waitForSelector('h1:has-text("Dashboard")'); ok('secretary signs in');
   assert.ok(await page.locator('text=Upcoming activities').count()); assert.ok(await page.locator('.badge:has-text("Example")').count()); ok('dashboard shows upcoming activities, with Example badges on sample data');
-  assert.equal(await page.locator('nav.main a:has-text("Users")').count(), 0); assert.equal(await page.locator('nav.main a:has-text("Audit")').count(), 0); ok('leader does not see admin navigation');
+  assert.equal(await page.locator('nav.main a:has-text("Users")').count(), 0); assert.equal(await page.locator('nav.main a:has-text("Audit")').count(), 0); ok('secretary does not see admin navigation');
   await shot('02-dashboard-mobile');
   // no horizontal scroll on mobile
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)); ok('no horizontal page scroll at phone width');
@@ -43,20 +43,10 @@ const SHOTS = process.env.SHOTS || path.join(os.tmpdir(), 'acyc-shots'); fs.mkdi
   await page.fill('#f-date', '2026-11-10'); await page.fill('#f-time', '09:00'); await page.fill('#f-location', 'Club room');
   await shot('03-activity-form-mobile');
   await page.click('#af button[type=submit]');
-  await page.waitForSelector('#att-list'); ok('creating an activity lands straight on attendance');
-  // attendance
-  await page.click('#all-present');
-  await page.locator('.att-row').nth(1).locator('label:has-text("Absent")').click();
-  await page.locator('.att-row').nth(2).locator('label:has-text("Late")').click();
-  await page.locator('.att-row').nth(3).locator('label:has-text("Excused")').click();
-  await shot('04-attendance-mobile');
-  await page.click('#save-att'); await page.waitForFunction(() => /Attendance saved/.test(document.getElementById('toast').textContent)); ok('attendance saved');
-  await page.reload(); await page.waitForSelector('#att-list');
-  assert.ok(await page.locator('.att-row').nth(1).locator('input[value=absent]').isChecked());
-  assert.ok(await page.locator('.att-row').nth(2).locator('input[value=late]').isChecked()); ok('attendance persists after reload');
-  // correction
-  await page.locator('.att-row').nth(1).locator('label:has-text("Excused")').click(); await page.click('#save-att');
-  await page.waitForFunction(() => /Attendance saved \(1 updated\)/.test(document.getElementById('toast').textContent)); ok('attendance correction saved');
+  await page.waitForSelector('#att-list'); ok('creating an activity lands on its attendance page');
+  assert.equal(await page.locator('#save-att').count(), 0); assert.equal(await page.locator('.seg').count(), 0);
+  assert.match(await page.textContent('#tabbody'), /recorded by the club leader/); ok('secretary sees attendance read-only (no save button)');
+  const actUrl = page.url();
   // notes and tasks
   await page.click('[data-tab=notes]'); await page.waitForSelector('#nf');
   await page.fill('#f-notes', 'Discussed plans <b>bold?</b>'); await page.fill('#f-decisions', 'Go ahead'); await page.click('#nf button[type=submit]');
@@ -76,12 +66,33 @@ const SHOTS = process.env.SHOTS || path.join(os.tmpdir(), 'acyc-shots'); fs.mkdi
   page.once('dialog', () => {});
   await page.click('#toggle'); await page.waitForSelector('dialog[open]'); await shot('06-confirm-dialog-mobile');
   await page.click('dialog [data-r=yes]'); await page.waitForSelector('.badge:has-text("Inactive"), .badge:has-text("Inactive")'); ok('deactivation asks for confirmation first');
-  assert.equal(await page.locator('#remove').count(), 0); ok('leader cannot see "Remove personal data"');
+  assert.equal(await page.locator('#remove').count(), 0); ok('secretary cannot see "Remove personal data"');
   // reports
   await page.goto(base + '/#/reports?from=2026-10-01&to=2026-11-10'); await page.waitForSelector('text=Member participation');
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('a:has-text("Export CSV")')]);
   const csvText = fs.readFileSync(await dl.path(), 'utf8'); assert.match(csvText, /MEMBER PARTICIPATION/); ok('report renders and CSV exports');
   await shot('07-report-mobile');
+  // club leader records attendance
+  await page.click('#logout'); await page.waitForSelector('#login');
+  await page.fill('[name=username]', 'demo-leader'); await page.fill('[name=password]', 'DemoLeader-2026!'); await page.click('button[type=submit]');
+  await page.waitForSelector('h1:has-text("Dashboard")'); ok('club leader signs in');
+  assert.equal(await page.locator('a:has-text("+ New activity")').count(), 0); ok('leader has no "New activity" button');
+  await page.goto(base + '/#/members'); await page.waitForSelector('table'); assert.equal(await page.locator('a:has-text("+ Add member")').count(), 0); ok('leader cannot add members');
+  await page.goto(actUrl); await page.waitForSelector('#att-list');
+  await page.click('#all-present');
+  await page.locator('.att-row').nth(1).locator('label:has-text("Absent")').click();
+  await page.locator('.att-row').nth(2).locator('label:has-text("Late")').click();
+  await page.locator('.att-row').nth(3).locator('label:has-text("Excused")').click();
+  await shot('04-attendance-mobile');
+  await page.click('#save-att'); await page.waitForFunction(() => /Attendance saved/.test(document.getElementById('toast').textContent)); ok('leader saves attendance');
+  await page.reload(); await page.waitForSelector('#att-list');
+  assert.ok(await page.locator('.att-row').nth(1).locator('input[value=absent]').isChecked());
+  assert.ok(await page.locator('.att-row').nth(2).locator('input[value=late]').isChecked()); ok('attendance persists after reload');
+  await page.locator('.att-row').nth(1).locator('label:has-text("Excused")').click(); await page.click('#save-att');
+  await page.waitForFunction(() => /Attendance saved \(1 updated\)/.test(document.getElementById('toast').textContent)); ok('attendance correction saved');
+  await page.click('[data-tab=notes]'); await page.waitForSelector('h2:has-text("Meeting notes")');
+  assert.equal(await page.locator('#nf').count(), 0); assert.equal(await page.locator('#tf').count(), 0); ok('leader sees notes and tasks read-only');
+  await page.goto(base + '/#/reports?from=2026-10-01&to=2026-11-10'); await page.waitForSelector('text=Member participation'); ok('leader can open reports');
   // offline banner
   await ctx.setOffline(true); await page.evaluate(() => window.dispatchEvent(new Event('offline')));
   assert.ok(await page.locator('#offline').isVisible());
@@ -102,7 +113,7 @@ const SHOTS = process.env.SHOTS || path.join(os.tmpdir(), 'acyc-shots'); fs.mkdi
   await dp.click('nav a:has-text("Users")'); await dp.waitForSelector('h1:has-text("Users")');
   await dp.fill('#uf [name=display_name]', 'E2E Leader'); await dp.fill('#uf [name=username]', 'e2e.leader'); await dp.fill('#uf [name=password]', 'short'); await dp.click('#uf button[type=submit]');
   await dp.waitForSelector('#e-password:not(:empty)'); ok('weak temporary password rejected');
-  await dp.fill('#uf [name=password]', 'Temporary-1234'); await dp.click('#uf button[type=submit]'); await dp.waitForSelector('td:has-text("e2e.leader")'); ok('admin creates a user');
+  await dp.selectOption('#uf [name=role]', 'secretary'); await dp.fill('#uf [name=password]', 'Temporary-1234'); await dp.click('#uf button[type=submit]'); await dp.waitForSelector('td:has-text("e2e.leader")'); ok('admin creates a user');
   await dp.goto(base + '/#/activities'); await dp.waitForSelector('table'); await dp.screenshot({ path: path.join(SHOTS, '10-activities-desktop.png') });
   const [bk] = await Promise.all([dp.waitForEvent('download'), (async () => { await dp.goto(base + '/#/users'); await dp.waitForSelector('a:has-text("Download backup file")'); await dp.click('a:has-text("Download backup file")'); })()]);
   assert.equal(fs.readFileSync(await bk.path()).subarray(0, 15).toString(), 'SQLite format 3'); ok('admin downloads a valid backup');
@@ -114,6 +125,11 @@ const SHOTS = process.env.SHOTS || path.join(os.tmpdir(), 'acyc-shots'); fs.mkdi
   await np.fill('#f-current_password', 'Temporary-1234'); await np.fill('#f-new_password', 'MyOwn-Password-7'); await np.click('#pw button[type=submit]');
   await np.waitForSelector('h1:has-text("Dashboard")'); ok('after changing password the new user reaches the dashboard');
 
+  // installable app (PWA)
+  const man = await page.evaluate(async () => (await fetch('/manifest.webmanifest')).json());
+  assert.equal(man.display, 'standalone'); assert.ok(man.icons.some((i) => i.sizes === '512x512')); ok('web app manifest is valid');
+  await page.goto(base); await page.waitForSelector('#login');
+  const sw = await page.evaluate(async () => { const r = await navigator.serviceWorker.ready; return !!r.active; }); assert.ok(sw); ok('service worker active (app can be installed)');
   assert.deepEqual(errors, [], 'browser console errors / CSP violations: ' + errors.join(' | ')); ok('no console errors or CSP violations');
   await browser.close(); app.close(); console.log(`\nE2E passed (${n} checks). Screenshots in ${SHOTS}`);
 })().catch((e) => { console.error('\nE2E FAILED:', e.message); process.exit(1); });

@@ -8,11 +8,12 @@ const NAMES = ['Amina Example', 'Brian Sample', 'Chloe Demo', 'Daniel Placeholde
 
 function addDays(iso, d) { const t = new Date(iso.slice(0, 10) + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + d); return t.toISOString().slice(0, 10); }
 
-function seed(app, { adminPassword = 'DemoAdmin-2026!', leaderPassword = 'DemoLeader-2026!' } = {}) {
+function seed(app, { adminPassword = 'DemoAdmin-2026!', leaderPassword = 'DemoLeader-2026!', secretaryPassword = 'DemoSecretary-2026!' } = {}) {
   const { db, hashPassword } = app;
   const today = clubNow().slice(0, 10);
   const user = db.prepare('INSERT OR IGNORE INTO users (username,display_name,role,password_hash,must_change) VALUES (?,?,?,?,0)');
   user.run('demo-admin', 'Demo Administrator (Example)', 'admin', hashPassword(adminPassword));
+  user.run('demo-secretary', 'Demo Secretary (Example)', 'secretary', hashPassword(secretaryPassword));
   user.run('demo-leader', 'Demo Leader (Example)', 'leader', hashPassword(leaderPassword));
   const mem = db.prepare('INSERT INTO members (full_name,phone,email,status,date_joined,is_demo) VALUES (?,?,?,?,?,1)');
   const ids = NAMES.map((n, i) => Number(mem.run(n, `0700 000 ${String(100 + i)}`, null, i === 11 ? 'inactive' : 'active', addDays(today, -400 + i * 20)).lastInsertRowid));
@@ -45,7 +46,7 @@ if (require.main === module) {
   const app = createApp();
   if (app.db.prepare('SELECT COUNT(*) n FROM members').get().n > 0) { console.error('Database already has members; refusing to add demo data.'); process.exit(1); }
   seed(app);
-  console.log('Demo data added. Sign in with demo-admin / DemoAdmin-2026!  or  demo-leader / DemoLeader-2026!');
+  console.log('Demo data added. Sign in with demo-admin / DemoAdmin-2026!  or  demo-leader / DemoLeader-2026!  or  demo-secretary / DemoSecretary-2026!');
   console.log('These accounts and all "Example" records are for demonstration only. Delete them before real use.');
   app.close();
 }

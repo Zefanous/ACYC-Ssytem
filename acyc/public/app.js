@@ -20,6 +20,7 @@ function fmtStamp(utcIso) { // audit timestamps (UTC ISO) -> club time
     .formatToParts(new Date(utcIso)).map((x) => [x.type, x.value]));
   return fmtDT(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`);
 }
+const ROLE_LABEL = { admin: 'Administrator', leader: 'Club leader', secretary: 'Secretary' };
 const can = (perm) => !!state.config?.permissions.includes(perm);
 const todayStr = () => state.config.now.slice(0, 10);
 function addDays(iso, n) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
@@ -99,13 +100,22 @@ function missingRequired(form) {
 }
 const formData = (form) => Object.fromEntries(new FormData(form).entries());
 
+/* ---------- install as an app (PWA) ---------- */
+let installEvt = null;
+const syncInstall = () => { const b = document.getElementById('install'); if (b) b.hidden = !installEvt; };
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; syncInstall(); });
+window.addEventListener('appinstalled', () => { installEvt = null; syncInstall(); toast('App installed.'); });
+if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+
 /* ---------- layout ---------- */
 const NAV = [['#/', 'Dashboard'], ['#/activities', 'Activities'], ['#/members', 'Members'], ['#/tasks', 'Tasks'], ['#/reports', 'Reports'], ['#/users', 'Users', 'users.manage'], ['#/audit', 'Audit history', 'audit.read'], ['#/account', 'My account']];
 function shell(active, inner) {
   const nav = NAV.filter((n) => !n[2] || can(n[2])).map(([h, t]) => `<a href="${h}" ${active === h ? 'aria-current="page"' : ''}>${t}</a>`).join('');
   $app.innerHTML = `<header class="top"><div class="top-in"><a class="brand" href="#/">The Aids Challenge Youth Club<small>Club activity system</small></a>
-    <span class="small muted">${esc(state.user.display_name)} · ${state.user.role === 'admin' ? 'Administrator' : 'Club leader'}</span>
-    <button id="logout" type="button">Sign out</button></div><nav class="main" aria-label="Main">${nav}</nav></header><main id="main" tabindex="-1">${inner}</main>`;
+    <span class="small muted">${esc(state.user.display_name)} · ${ROLE_LABEL[state.user.role]}</span>
+    <button id="install" type="button" hidden>Install app</button><button id="logout" type="button">Sign out</button></div><nav class="main" aria-label="Main">${nav}</nav></header><main id="main" tabindex="-1">${inner}</main>`;
+  syncInstall();
+  document.getElementById('install').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; syncInstall(); };
   document.getElementById('logout').onclick = async () => { try { await api('POST', '/api/logout'); } catch {} state.user = null; state.csrf = null; location.hash = '#/'; renderLogin(); };
 }
 const loading = () => { const m = document.getElementById('main'); if (m) m.innerHTML = '<p class="empty">Loading…</p>'; };
@@ -130,7 +140,7 @@ function renderLogin(msg) {
 }
 function renderChangePassword(forced) {
   const inner = `<h1>${forced ? 'Choose a new password' : 'My account'}</h1>
-    ${forced ? '<p>Your password was set by an administrator. Please choose your own before continuing.</p>' : `<p><strong>${esc(state.user.display_name)}</strong> (${esc(state.user.username)}) · ${state.user.role === 'admin' ? 'Administrator' : 'Club leader'}</p>`}
+    ${forced ? '<p>Your password was set by an administrator. Please choose your own before continuing.</p>' : `<p><strong>${esc(state.user.display_name)}</strong> (${esc(state.user.username)}) · ${ROLE_LABEL[state.user.role]}</p>`}
     <div class="card"><h2 class="mt0">Change password</h2><form id="pw" novalidate>
     ${field('current_password', forced ? 'Temporary password' : 'Current password', '', { type: 'password', required: true })}
     ${field('new_password', 'New password', '', { type: 'password', required: true, hint: `At least ${state.config?.min_password || 10} characters` })}
@@ -243,12 +253,13 @@ async function attendanceTab(a, tb) {
   const { records, counts } = await api('GET', `/api/activities/${a.id}/attendance`);
   if (a.status === 'cancelled') { tb.innerHTML = '<div class="card"><p>This activity was cancelled, so attendance cannot be recorded.</p></div>'; return; }
   const writable = can('attendance.write');
+  const roNote = writable ? '' : '<p class="small muted">Attendance is recorded by the club leader. You can view it here.</p>';
   const summary = (c) => `<span class="badge b-ok">Present ${c.present}</span> <span class="badge b-warn">Late ${c.late}</span> <span class="badge b-bad">Absent ${c.absent}</span> <span class="badge b-info">Excused ${c.excused}</span>`;
   const rows = records.map((r) => `<div class="att-row" data-member="${r.member_id}"><div><strong>${esc(r.full_name)}</strong>${r.member_status !== 'active' ? ' ' + badge('Inactive', 'b-grey') : ''}</div>
     ${writable ? `<div class="seg" role="radiogroup" aria-label="Attendance for ${esc(r.full_name)}">${state.config.attendance_statuses.map((s) => `<label><input type="radio" name="att-${r.member_id}" value="${s}" ${r.status === s ? 'checked' : ''}><span class="s-${s}">${s[0].toUpperCase() + s.slice(1)}</span></label>`).join('')}</div>` : `<div>${attBadge(r.status)}</div>`}</div>`).join('');
   tb.innerHTML = `<div class="card"><div class="row between"><div id="att-sum" aria-live="polite">${summary(counts)}</div>
     ${writable ? '<div class="row noprint"><button type="button" id="all-present">Mark everyone present</button></div>' : ''}</div>
-    ${writable ? '<p class="small muted">Choose a status for each person, then press Save. You can come back and correct it later; corrections are logged.</p>' : ''}
+    ${roNote}${writable ? '<p class="small muted">Choose a status for each person, then press Save. You can come back and correct it later; corrections are logged.</p>' : ''}
     <div id="att-list">${rows || '<p class="empty">There are no active members yet. Add members first.</p>'}</div>
     ${writable && records.length ? `<div class="savebar noprint"><button class="primary" id="save-att" type="button">Save attendance</button><span id="att-left" class="small muted"></span></div>` : ''}
     <p class="print-only small">Printed ${fmtD(todayStr())}</p><div class="row noprint"><button type="button" data-print>Print attendance list</button></div></div>`;
@@ -380,18 +391,18 @@ async function viewReports() {
 async function viewUsers() {
   shell('#/users', '<p class="empty">Loading…</p>');
   const { users } = await api('GET', '/api/users');
-  setMain(`<h1>Users</h1><p class="muted small">Administrators can manage users, remove personal data, delete activities, view audit history and download backups. Club leaders manage members, activities, attendance, notes, tasks and reports.</p>
-    <div class="card"><div class="tablewrap"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>${users.map((u) => `<tr><td>${esc(u.display_name)}</td><td>${esc(u.username)}</td><td>${u.role === 'admin' ? 'Administrator' : 'Club leader'}</td><td>${u.active ? badge('Active', 'b-ok') : badge('Deactivated', 'b-grey')}</td>
-    <td><button class="link" data-reset="${u.id}">Reset password</button> ${u.id !== state.user.id ? `<button class="link" data-act="${u.id}" data-active="${u.active ? 0 : 1}">${u.active ? 'Deactivate' : 'Reactivate'}</button> <button class="link" data-role="${u.id}" data-to="${u.role === 'admin' ? 'leader' : 'admin'}">Make ${u.role === 'admin' ? 'leader' : 'administrator'}</button>` : '<span class="muted small">(you)</span>'}</td></tr>`).join('')}</tbody></table></div></div>
+  setMain(`<h1>Users</h1><p class="muted small">Administrator: everything, including users, audit history, backups, deleting activities and removing personal data. Club leader: records attendance and can view everything and run reports. Secretary: manages members, activities, notes, tasks and reports (does not record attendance).</p>
+    <div class="card"><div class="tablewrap"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>${users.map((u) => `<tr><td>${esc(u.display_name)}</td><td>${esc(u.username)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.active ? badge('Active', 'b-ok') : badge('Deactivated', 'b-grey')}</td>
+    <td><button class="link" data-reset="${u.id}">Reset password</button> ${u.id !== state.user.id ? `<button class="link" data-act="${u.id}" data-active="${u.active ? 0 : 1}">${u.active ? 'Deactivate' : 'Reactivate'}</button> <label class="hint" for="r${u.id}">Role</label> <select id="r${u.id}" class="rolesel" data-role="${u.id}">${Object.entries(ROLE_LABEL).map(([k, v]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${v}</option>`).join('')}</select>` : '<span class="muted small">(you)</span>'}</td></tr>`).join('')}</tbody></table></div></div>
     <div class="card"><h2 class="mt0">Add a user</h2><form id="uf" novalidate><div class="two">${field('display_name', 'Full name', '', { required: true })}${field('username', 'Username', '', { required: true, hint: 'Letters, numbers, . - _' })}
-    ${field('role', 'Role', 'leader', { required: true, options: [['leader', 'Club leader'], ['admin', 'Administrator']] })}${field('password', 'Temporary password', '', { required: true, type: 'password', hint: `At least ${state.config.min_password} characters. They must change it at first sign-in.` })}</div>
+    ${field('role', 'Role', 'secretary', { required: true, options: [['secretary', 'Secretary'], ['leader', 'Club leader'], ['admin', 'Administrator']] })}${field('password', 'Temporary password', '', { required: true, type: 'password', hint: `At least ${state.config.min_password} characters. They must change it at first sign-in.` })}</div>
     <div class="mt1"><button class="primary" type="submit">Add user</button></div></form></div>
     <div class="card"><h2 class="mt0">Backup</h2><p>Download a complete copy of all club records. Keep it somewhere safe and private (it contains personal information). See the user guide for how to restore.</p><a class="btn" href="/api/backup" download>Download backup file</a></div>`);
   const uf = document.getElementById('uf');
   uf.onsubmit = async (e) => { e.preventDefault(); showErrors(uf, null); const miss = missingRequired(uf); if (miss) return showErrors(uf, miss); try { await api('POST', '/api/users', formData(uf)); toast('User added.'); viewUsers(); } catch (err) { showErrors(uf, err); } };
   const patch = async (id, body, okMsg) => { try { await api('PATCH', `/api/users/${id}`, body); toast(okMsg); viewUsers(); } catch (e) { toast(e.message); } };
   document.querySelectorAll('[data-act]').forEach((b) => { b.onclick = async () => { if (b.dataset.active === '0' && !await confirmDialog({ title: 'Deactivate this user?', message: 'They will be signed out and unable to sign in.', confirmText: 'Deactivate', danger: true })) return; patch(b.dataset.act, { active: b.dataset.active === '1' }, 'User updated.'); }; });
-  document.querySelectorAll('[data-role]').forEach((b) => { b.onclick = async () => { if (!await confirmDialog({ title: 'Change role?', message: `This user will become ${b.dataset.to === 'admin' ? 'an administrator' : 'a club leader'}.`, confirmText: 'Change role' })) return; patch(b.dataset.role, { role: b.dataset.to }, 'Role changed.'); }; });
+  document.querySelectorAll('[data-role]').forEach((sel) => { sel.onchange = async () => { const to = sel.value; if (!await confirmDialog({ title: 'Change role?', message: `This user will become: ${ROLE_LABEL[to]}.`, confirmText: 'Change role' })) return viewUsers(); patch(sel.dataset.role, { role: to }, 'Role changed.'); }; });
   document.querySelectorAll('[data-reset]').forEach((b) => { b.onclick = async () => {
     const d = document.createElement('dialog'); d.innerHTML = `<h2 class="mt0">Reset password</h2><form id="rp" method="dialog" novalidate>${field('new_password', 'New temporary password', '', { type: 'password', required: true, hint: `At least ${state.config.min_password} characters` })}<div class="row end mt1"><button type="button" id="rp-c">Cancel</button><button class="primary" type="submit">Reset</button></div></form>`;
     document.body.appendChild(d); d.showModal(); const f = d.querySelector('form'); d.querySelector('#rp-c').onclick = () => { d.close(); d.remove(); };

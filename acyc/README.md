@@ -1,6 +1,6 @@
 # Club Activity System: The Aids Challenge Youth Club
 
-Simple, secure activity management for a youth club: members, activities, attendance, meeting notes and follow-up tasks, dashboard and reports, with sign-in, roles and an audit trail. Works on phones and computers. **No dependencies**: just Node.js 22.5+. The interface is a frosted-glass design. Records live in **Google Sheets** (or a local SQLite file for development).
+Simple, secure activity management for a youth club: members, activities, attendance, meeting notes and follow-up tasks, dashboard and reports, with sign-in, roles and an audit trail. Works on phones and computers. **No dependencies**: just Node.js 22.5+. The interface is maroon with frosted-glass panels and installs on phones as an app (PWA). Records live in **Google Sheets** (or a local SQLite file for development).
 
 User instructions: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
@@ -47,9 +47,9 @@ See [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md) (step-by-step).
 
 ## Tests
 ```bash
-npm test                         # 45 tests: API/security/business rules + Google Sheets storage (against a fake Google API)
+npm test                         # 51 tests: API/security/business rules + Google Sheets storage (against a fake Google API)
 npm i -D playwright && npx playwright install chromium
-node --no-warnings e2e/run.js    # 28 browser checks at phone + desktop sizes, incl. CSP/console errors
+node --no-warnings e2e/run.js    # 36 browser checks at phone + desktop sizes, incl. CSP/console errors
 ```
 
 ## Security design
@@ -57,7 +57,7 @@ scrypt-hashed passwords · random server-side sessions in HttpOnly + SameSite=St
 
 ## Assumptions (change if wrong)
 1. Platform: responsive web app, self-hosted, one club. Needs internet/LAN; **no offline mode** (and the UI says so).
-2. Roles: only **administrator** and **club leader** (from the brief); permissions in `PERMS`, `src/club.js`.
+2. Roles: **club leader** (records attendance, views everything, reports), **secretary** (members, activities, notes, tasks, reports) and **administrator** (everything plus users, audit, backups); permissions in `PERMS`, `src/club.js`.
 3. Activity types: Meeting, Event, Outreach, Training, Other (`ACTIVITY_TYPES`).
 4. Organizer and task owner are club *members* (not login users).
 5. "Held" = not cancelled and start time has passed. "Overdue" = open task past its due date. Attendance % = (present + late) ÷ (present + late + absent); excused is not counted against anyone.

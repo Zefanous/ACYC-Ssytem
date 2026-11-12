@@ -280,3 +280,51 @@ describe('demo seed data', () => {
     a2.close();
   });
 });
+
+describe('role separation: leader records attendance, secretary does the rest', () => {
+  let admin, sec, cl, member, act;
+  before(async () => {
+    const mk = (u, role) => app.db.prepare("INSERT OR IGNORE INTO users (username,display_name,role,password_hash) VALUES (?,?,?,?)").run(u, u, role, app.hashPassword('RolePass-12345'));
+    mk('sec1', 'secretary'); mk('cl1', 'leader');
+    admin = client(); await admin.login('boss', 'AdminPass-12345');
+    sec = client(); assert.equal((await sec.login('sec1', 'RolePass-12345')).status, 200);
+    cl = client(); assert.equal((await cl.login('cl1', 'RolePass-12345')).status, 200);
+  });
+  test('secretary: members, activities, notes, tasks, reports allowed', async () => {
+    member = (await sec.req('POST', '/api/members', { full_name: 'Role Test Member' })).data.member; assert.ok(member.id);
+    act = (await sec.req('POST', '/api/activities', { title: 'Role test', type: 'Meeting', starts_at: '2026-11-02T10:00', location: 'Room', organizer_member_id: member.id })).data.activity; assert.ok(act.id);
+    assert.equal((await sec.req('PUT', `/api/activities/${act.id}/notes`, { notes: 'n' })).status, 200);
+    assert.equal((await sec.req('POST', `/api/activities/${act.id}/tasks`, { title: 'T', responsible_member_id: member.id, due_date: '2026-11-20' })).status, 200);
+    assert.equal((await sec.req('GET', '/api/reports?from=2026-11-01&to=2026-11-30')).status, 200);
+    assert.equal((await sec.req('PATCH', `/api/members/${member.id}`, { phone: '0700 000 000' })).status, 200);
+  });
+  test('secretary cannot record attendance, nor admin functions', async () => {
+    assert.equal((await sec.req('PUT', `/api/activities/${act.id}/attendance`, { records: [{ member_id: member.id, status: 'present' }] })).status, 403);
+    for (const p of ['/api/users', '/api/audit', '/api/backup']) assert.equal((await sec.req('GET', p)).status, 403, p);
+    assert.equal((await sec.req('DELETE', `/api/activities/${act.id}`)).status, 403);
+  });
+  test('leader records and corrects attendance, can view and run reports', async () => {
+    assert.equal((await cl.req('PUT', `/api/activities/${act.id}/attendance`, { records: [{ member_id: member.id, status: 'present' }] })).status, 200);
+    assert.equal((await cl.req('PUT', `/api/activities/${act.id}/attendance`, { records: [{ member_id: member.id, status: 'late' }] })).status, 200);
+    for (const p of ['/api/members', '/api/activities', `/api/activities/${act.id}`, '/api/tasks', '/api/dashboard', '/api/reports?from=2026-11-01&to=2026-11-30']) assert.equal((await cl.req('GET', p)).status, 200, p);
+    const log = (await admin.req('GET', '/api/audit')).data.audit.find((x) => x.action === 'attendance_corrected' && x.username === 'cl1');
+    assert.ok(log);
+  });
+  test('leader cannot change anything else', async () => {
+    assert.equal((await cl.req('POST', '/api/members', { full_name: 'X' })).status, 403);
+    assert.equal((await cl.req('PATCH', `/api/members/${member.id}`, { status: 'inactive' })).status, 403);
+    assert.equal((await cl.req('POST', '/api/activities', { title: 'x', type: 'Meeting', starts_at: '2026-11-02T10:00', location: 'R', organizer_member_id: member.id })).status, 403);
+    assert.equal((await cl.req('PUT', `/api/activities/${act.id}/notes`, { notes: 'x' })).status, 403);
+    assert.equal((await cl.req('POST', `/api/activities/${act.id}/tasks`, { title: 'T', responsible_member_id: member.id, due_date: '2026-11-20' })).status, 403);
+    assert.equal((await cl.req('GET', '/api/users')).status, 403);
+  });
+  test('admin can create secretary accounts; unknown roles are rejected', async () => {
+    assert.equal((await admin.req('POST', '/api/users', { username: 'sec.new', display_name: 'Sec New', role: 'secretary', password: 'Temporary-1234' })).status, 200);
+    assert.equal((await admin.req('POST', '/api/users', { username: 'bad.role', display_name: 'B', role: 'treasurer', password: 'Temporary-1234' })).status, 400);
+  });
+  test('installable app files are served with correct types', async () => {
+    const m = await fetch(base + '/manifest.webmanifest'); assert.equal(m.status, 200); const j = await m.json(); assert.equal(j.display, 'standalone'); assert.ok(j.icons.length >= 3);
+    const sw = await fetch(base + '/sw.js'); assert.match(sw.headers.get('content-type'), /javascript/); assert.match(await sw.text(), /startsWith\('\/api\/'\)/);
+    for (const i of j.icons) { const r = await fetch(base + i.src); assert.equal(r.status, 200); assert.equal(r.headers.get('content-type'), 'image/png'); }
+  });
+});
