@@ -49,7 +49,7 @@ See [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md) (step-by-step).
 ```bash
 npm test                         # 51 tests: API/security/business rules + Google Sheets storage (against a fake Google API)
 npm i -D playwright && npx playwright install chromium
-node --no-warnings e2e/run.js    # 36 browser checks at phone + desktop sizes, incl. CSP/console errors
+node --no-warnings e2e/run.js    # 37 browser checks at phone + desktop sizes, incl. CSP/console errors
 ```
 
 ## Security design

@@ -78,7 +78,10 @@ const SHOTS = process.env.SHOTS || path.join(os.tmpdir(), 'acyc-shots'); fs.mkdi
   await page.waitForSelector('h1:has-text("Dashboard")'); ok('club leader signs in');
   assert.equal(await page.locator('a:has-text("+ New activity")').count(), 0); ok('leader has no "New activity" button');
   await page.goto(base + '/#/members'); await page.waitForSelector('table'); assert.equal(await page.locator('a:has-text("+ Add member")').count(), 0); ok('leader cannot add members');
-  await page.goto(actUrl); await page.waitForSelector('#att-list');
+  await page.click('nav.main a:has-text("Attendance")'); await page.waitForSelector('h2:has-text("Waiting for attendance")');
+  await shot('11-attendance-home-mobile');
+  assert.ok(await page.locator('a.btn.primary:has-text("Take attendance")').count()); ok('leader finds "Take attendance" in the Attendance menu');
+  await page.locator('li:has-text("E2E Planning Meeting") a.btn').click(); await page.waitForSelector('#att-list');
   await page.click('#all-present');
   await page.locator('.att-row').nth(1).locator('label:has-text("Absent")').click();
   await page.locator('.att-row').nth(2).locator('label:has-text("Late")').click();

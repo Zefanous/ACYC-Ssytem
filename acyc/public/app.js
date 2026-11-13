@@ -40,7 +40,7 @@ async function api(method, path, body) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     if (r.status === 401 && state.user) { state.user = null; renderLogin('Your session ended. Please sign in again.'); }
-    const e = new Error(data.error || 'Something went wrong.'); e.status = r.status; e.fields = data.fields || {}; throw e;
+    const e = new Error(data.error || 'Something went wrong.'); e.status = r.status; e.fields = data.fields || {}; e.detail = data.detail || ''; throw e;
   }
   return data;
 }
@@ -86,7 +86,7 @@ function showErrors(form, err) {
     if (el) el.textContent = m;
     if (inp) { inp.setAttribute('aria-invalid', 'true'); inp.setAttribute('aria-describedby', 'e-' + k); first = first || inp; }
   }
-  box = document.createElement('div'); box.className = 'form-error'; box.setAttribute('role', 'alert'); box.textContent = err.message;
+  box = document.createElement('div'); box.className = 'form-error'; box.setAttribute('role', 'alert'); box.textContent = err.message; if (err.detail) { const d = document.createElement('div'); d.className = 'small'; d.textContent = 'Technical detail (send this to the person who set up the system): ' + err.detail; box.appendChild(d); }
   form.prepend(box);
   (first || box).focus?.();
   if (!first) box.scrollIntoView({ block: 'nearest' });
@@ -108,7 +108,7 @@ window.addEventListener('appinstalled', () => { installEvt = null; syncInstall()
 if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
 
 /* ---------- layout ---------- */
-const NAV = [['#/', 'Dashboard'], ['#/activities', 'Activities'], ['#/members', 'Members'], ['#/tasks', 'Tasks'], ['#/reports', 'Reports'], ['#/users', 'Users', 'users.manage'], ['#/audit', 'Audit history', 'audit.read'], ['#/account', 'My account']];
+const NAV = [['#/', 'Dashboard'], ['#/activities', 'Activities'], ['#/attendance', 'Attendance'], ['#/members', 'Members'], ['#/tasks', 'Tasks'], ['#/reports', 'Reports'], ['#/users', 'Users', 'users.manage'], ['#/audit', 'Audit history', 'audit.read'], ['#/account', 'My account']];
 function shell(active, inner) {
   const nav = NAV.filter((n) => !n[2] || can(n[2])).map(([h, t]) => `<a href="${h}" ${active === h ? 'aria-current="page"' : ''}>${t}</a>`).join('');
   $app.innerHTML = `<header class="top"><div class="top-in"><a class="brand" href="#/">The Aids Challenge Youth Club<small>Club activity system</small></a>
@@ -166,7 +166,7 @@ async function viewDashboard() {
       <div class="stat"><b>${d.recent_attendance_rate === null ? '–' : d.recent_attendance_rate + '%'}</b><span>Attendance, last 5 held</span></div>
       <div class="stat"><b>${d.open_tasks.length}</b><span>Open follow-up tasks</span></div>
       <div class="stat ${d.overdue_count ? 'alert' : ''}"><b>${d.overdue_count}</b><span>Overdue tasks</span></div></div>
-    ${can('activities.write') ? '<p><a class="btn primary" href="#/activity/new">+ New activity</a></p>' : ''}
+    <p class="row">${can('attendance.write') ? '<a class="btn primary" href="#/attendance">Take attendance</a>' : '<a class="btn" href="#/attendance">View attendance</a>'}${can('activities.write') ? '<a class="btn primary" href="#/activity/new">+ New activity</a>' : ''}</p>
     ${d.needs_attendance.length ? `<div class="card bd-warn"><strong>Attendance not recorded yet</strong><ul class="plain">${d.needs_attendance.map((a) => `<li><a href="#/activity/${a.id}/attendance">${esc(a.title)}</a> <span class="muted small">${fmtDT(a.starts_at)}</span></li>`).join('')}</ul></div>` : ''}
     <div class="grid g2">
     <section class="card"><h2 class="mt0">Upcoming activities</h2>${d.upcoming.length ? `<ul class="plain">${d.upcoming.map((a) => actItem(a)).join('')}</ul>` : '<p class="empty">Nothing planned yet.</p>'}</section>
@@ -234,7 +234,7 @@ async function viewActivity(id, tab) {
   tb.innerHTML = `<div class="card"><dl class="kv"><dt>Type</dt><dd>${esc(a.type)}</dd><dt>Organizer</dt><dd>${esc(a.organizer_name || '—')}</dd><dt>Date and time</dt><dd>${fmtDT(a.starts_at)}</dd><dt>Location</dt><dd>${esc(a.location)}</dd>
     ${a.status === 'cancelled' ? `<dt>Cancelled</dt><dd>${esc(a.cancel_reason || 'No reason given')}</dd>` : ''}</dl>
     <h3>Agenda / description</h3><div class="notes-view">${esc(a.description) || '<span class="muted">None</span>'}</div>
-    <div class="row noprint mt1">${a.status !== 'cancelled' && can('activities.write') ? `<a class="btn" href="#/activity/${a.id}/edit">Edit</a><button type="button" id="cancel-act" class="danger">Cancel this activity</button>` : ''}
+    <div class="row noprint mt1">${a.status !== 'cancelled' ? `<a class="btn primary" href="#/activity/${a.id}/attendance">${can('attendance.write') ? 'Take attendance' : 'View attendance'}</a>` : ''}${a.status !== 'cancelled' && can('activities.write') ? `<a class="btn" href="#/activity/${a.id}/edit">Edit</a><button type="button" id="cancel-act" class="danger">Cancel this activity</button>` : ''}
     ${can('activities.delete') ? '<button type="button" id="del-act" class="danger">Delete permanently</button>' : ''}</div></div>`;
   const c = document.getElementById('cancel-act');
   if (c) c.onclick = async () => {
@@ -303,6 +303,23 @@ function notesTab(a, notes, tasks, tb) {
     tf.innerHTML = `<div class="two">${field('title', 'Task', '', { required: true, maxlength: 200 })}${field('responsible_member_id', 'Person responsible', '', { required: true, options: [['', 'Choose a person…'], ...members.map((m) => [m.id, m.full_name])] })}${field('due_date', 'Due date', '', { type: 'date', required: true })}</div><div class="mt1"><button class="primary" type="submit">Add task</button></div>`;
     tf.onsubmit = async (e) => { e.preventDefault(); showErrors(tf, null); const miss = missingRequired(tf); if (miss) return showErrors(tf, miss); try { await api('POST', `/api/activities/${a.id}/tasks`, formData(tf)); toast('Task added.'); viewActivity(a.id, 'notes'); } catch (err) { showErrors(tf, err); } };
   });
+}
+
+/* ---------- attendance home ---------- */
+async function viewAttendanceHome() {
+  shell('#/attendance', '<p class="empty">Loading…</p>');
+  const { activities } = await api('GET', '/api/activities');
+  const live = activities.filter((a) => a.phase !== 'cancelled');
+  const need = live.filter((a) => a.phase === 'held' && !a.attendance_recorded);
+  const done = live.filter((a) => a.phase === 'held' && a.attendance_recorded);
+  const soon = live.filter((a) => a.phase === 'upcoming').reverse();
+  const w = can('attendance.write');
+  const list = (items, btnText) => items.length ? `<ul class="plain">${items.map((a) => `<li><div class="row between"><div><a href="#/activity/${a.id}/attendance"><strong>${esc(a.title)}</strong></a>${demoBadge(a)}<div class="small muted">${fmtDT(a.starts_at)} · ${esc(a.location)}${a.attendance_recorded ? ` · ${a.attended} of ${a.attendance_recorded} attended` : ''}</div></div><a class="btn ${btnText === 'Take attendance' ? 'primary' : ''}" href="#/activity/${a.id}/attendance">${btnText}</a></div></li>`).join('')}</ul>` : '<p class="empty">None.</p>';
+  setMain(`<h1>Attendance</h1><p class="muted small">${w ? 'Pick the meeting or activity, then mark each member Present, Late, Absent or Excused and press Save.' : 'Attendance is recorded by the club leader. You can view it here.'}</p>
+    <section class="card"><h2 class="mt0">Waiting for attendance (${need.length})</h2>${list(need, w ? 'Take attendance' : 'View')}</section>
+    <section class="card"><h2 class="mt0">Upcoming</h2>${list(soon, w ? 'Open' : 'View')}</section>
+    <section class="card"><h2 class="mt0">Already recorded (${done.length})</h2>${list(done, w ? 'View / correct' : 'View')}</section>
+    ${live.length ? '' : '<p class="empty">No activities yet. The secretary creates an activity first, then attendance is taken against it.</p>'}`);
 }
 
 /* ---------- tasks ---------- */
@@ -435,6 +452,7 @@ async function route() {
     document.title = 'Club Activity System · The Aids Challenge Youth Club';
     if (!p.length) await viewDashboard();
     else if (p[0] === 'activities') await viewActivities();
+    else if (p[0] === 'attendance') await viewAttendanceHome();
     else if (p[0] === 'activity' && p[1] === 'new') { if (!can('activities.write')) throw new Error('You do not have permission to do that.'); await activityForm(); }
     else if (p[0] === 'activity' && p[2] === 'edit') { if (!can('activities.write')) throw new Error('You do not have permission to do that.'); const r = await api('GET', `/api/activities/${p[1]}`); await activityForm(r.activity); }
     else if (p[0] === 'activity') await viewActivity(p[1], p[2] || '');

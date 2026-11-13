@@ -607,7 +607,7 @@ function createApp({ dbPath, store: givenStore, now = () => clubNow(), secureCoo
       if (e instanceof HttpError) return sendJson(res, e.status, { error: e.message, fields: e.fields });
       console.error(e);
       const msg = store.kind === 'sheets' && /Google|Sheet/.test(e.message) ? 'The club records (Google Sheets) could not be reached just now. Nothing was lost; please try again in a minute.' : 'Something went wrong on the server. Nothing was lost; please try again.';
-      return sendJson(res, 500, { error: msg });
+      return sendJson(res, 500, { error: msg, detail: String(e && e.message || e).replace(/\s+/g, ' ').slice(0, 300) });
     }
   });
 
